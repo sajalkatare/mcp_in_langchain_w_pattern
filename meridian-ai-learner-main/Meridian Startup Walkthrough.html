@@ -1,0 +1,262 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Meridian Startup Walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: steps rail | detail + file tree | live app state; first-request panel underneath. */
+:root{
+  --bg:#F2F4F6;--surface:#FFFFFF;--ink:#14212B;--muted:#556674;--line:#D5DCE2;
+  --accent:#0A6C8B;--accent-soft:#DCEEF4;--lazy:#8F5400;--lazy-soft:#FBEBD0;--ok:#256E47;--ok-soft:#DDF0E4;
+  --font-display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F161C;--surface:#17212A;--ink:#E6EDF2;--muted:#9AAAB7;--line:#2A3844;
+  --accent:#5BBCDA;--accent-soft:#16384A;--lazy:#E4A64B;--lazy-soft:#3B2C12;--ok:#6CCB93;--ok-soft:#173626;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F161C;--surface:#17212A;--ink:#E6EDF2;--muted:#9AAAB7;--line:#2A3844;
+  --accent:#5BBCDA;--accent-soft:#16384A;--lazy:#E4A64B;--lazy-soft:#3B2C12;--ok:#6CCB93;--ok-soft:#173626;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.55;padding-inline:16px;padding-block:28px 48px}
+.wrap{max-width:1180px;margin-inline:auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:clamp(26px,4vw,38px);font-weight:700}
+h2{font-size:20px;font-weight:600}
+h3{font-size:16px;font-weight:600}
+code,.mono{font-family:var(--font-mono);font-size:.88em}
+p{margin:0}
+.head{display:flex;flex-direction:column;gap:10px;max-width:760px}
+.head p{color:var(--muted);max-width:65ch}
+.cmd{font-family:var(--font-mono);font-size:13px;background:var(--surface);border:1px solid var(--line);padding:9px 12px;overflow-x:auto;white-space:nowrap;border-radius:6px}
+.cmd b{color:var(--accent);font-weight:500}
+.grid{display:grid;grid-template-columns:250px minmax(0,1fr) 270px;gap:20px;align-items:start}
+@media (max-width:1020px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.ctrl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+button{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:500}
+button.primary:hover:not(:disabled){color:var(--bg);filter:brightness(1.08)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.steps button{width:100%;text-align:left;display:flex;gap:10px;align-items:baseline;border:1px solid transparent;background:transparent;padding:8px 8px;border-radius:6px}
+.steps .n{font-family:var(--font-mono);font-size:12px;color:var(--muted);min-width:18px}
+.steps .done .n{color:var(--ok)}
+.steps .done .t{color:var(--muted)}
+.steps .active{background:var(--accent-soft);border-color:var(--accent)}
+.steps .active .n,.steps .active .t{color:var(--accent);font-weight:500}
+.bar{height:4px;background:var(--line);border-radius:2px;margin-top:12px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.detail{display:flex;flex-direction:column;gap:16px}
+.kicker{font-family:var(--font-mono);font-size:12px;color:var(--accent);letter-spacing:.06em;text-transform:uppercase}
+.files{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--font-mono);font-size:12px;border:1px solid var(--line);padding:2px 8px;border-radius:4px;background:var(--bg)}
+.chip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.plain{background:var(--bg);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.plain .lab{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.out{font-family:var(--font-mono);font-size:12.5px;background:#0E1A22;color:#CFE3EE;border-radius:8px;padding:12px 14px;overflow-x:auto;white-space:pre}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:720px){.cols{grid-template-columns:minmax(0,1fr)}}
+.tree{font-family:var(--font-mono);font-size:12.5px;display:flex;flex-direction:column;gap:2px}
+.tree .dir{color:var(--muted);margin-top:6px}
+.tree .f{padding:2px 8px;border-radius:4px;border:1px solid transparent;margin-left:12px;color:var(--muted)}
+.tree .f.seen{color:var(--ink)}
+.tree .f.now{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.state{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.state li{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--muted)}
+.state .box{flex:none;width:18px;height:18px;border:1.5px solid var(--line);border-radius:4px;margin-top:2px;display:grid;place-items:center;font-size:12px;line-height:1}
+.state li.on{color:var(--ink)}
+.state li.on .box{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.lazyrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:720px){.lazyrow{grid-template-columns:minmax(0,1fr)}}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:6px;background:var(--bg)}
+.pill{align-self:flex-start;font-size:12px;font-weight:500;padding:2px 9px;border-radius:99px;background:var(--lazy-soft);color:var(--lazy)}
+.pill.made{background:var(--ok-soft);color:var(--ok)}
+.msg{min-height:3.2em;font-size:14px;border-left:3px solid var(--line);padding-left:12px}
+.note{font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <h1>What happens when Meridian AI starts</h1>
+    <p>Step through the eight things Python does between pressing Enter and the server being ready. Then send the first requests and see what is built only when needed.</p>
+    <div class="cmd" aria-label="Start command"><b>$</b> uvicorn api.main:app --app-dir backend --reload --port 8080</div>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-label="Startup steps">
+      <div class="ctrl">
+        <button id="prev" type="button">Back</button>
+        <button id="next" type="button" class="primary">Next</button>
+        <button id="play" type="button" aria-pressed="false">Play</button>
+      </div>
+      <ol class="steps" id="steps"></ol>
+      <div class="bar" aria-hidden="true"><i id="prog"></i></div>
+    </section>
+
+    <section class="panel detail" aria-live="polite" id="detail"></section>
+
+    <aside class="panel" aria-label="App state">
+      <h3>App state right now</h3>
+      <p class="note" style="margin:4px 0 12px">Ticks appear as each step finishes.</p>
+      <ul class="state" id="state"></ul>
+    </aside>
+  </div>
+
+  <section class="panel" aria-label="First requests">
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+      <h2>After startup: what is built on first use</h2>
+      <p class="note" id="lazyhint">Reach step 8 first, then send a request.</p>
+    </div>
+    <div class="ctrl">
+      <button type="button" data-req="health" disabled>GET /api/health</button>
+      <button type="button" data-req="audit" disabled>POST /api/agent/audit</button>
+      <button type="button" data-req="ask" disabled>POST /api/rag/ask</button>
+      <button type="button" data-req="stop" disabled>Stop server (Ctrl+C)</button>
+      <button type="button" id="reset">Reset</button>
+    </div>
+    <div class="lazyrow" id="lazyrow"></div>
+    <p class="msg" id="msg" style="margin-top:14px"></p>
+    <div class="legend" style="margin-top:12px">
+      <span><span class="dot" style="background:var(--lazy)"></span>Not created yet</span>
+      <span><span class="dot" style="background:var(--ok)"></span>Created and reused afterwards</span>
+    </div>
+  </section>
+</div>
+
+<script>
+var STEPS=[
+{t:"Run the command",files:[],
+ what:"Uvicorn adds the backend/ folder to Python's search path, then looks for a variable called app inside api/main.py. Nothing of the project has run yet.",
+ plain:"Like telling a taxi driver the street (backend/) and the building (api/main.py).",
+ out:"$ uvicorn api.main:app --app-dir backend --reload --port 8080"},
+{t:"Imports begin",files:["api/main.py","api/endpoints.py","agent/agents.py","agent/prompts.py","agent/tools.py","rag/llm.py"],
+ what:"main.py starts running. Its first project import is api/endpoints.py, which imports agent/agents.py, then the prompts, the tools and rag/llm.py. These files only define things. No agent is created and no model is called.",
+ plain:"Reading the recipe book cover to cover before cooking anything."},
+{t:"Settings load",files:["config/settings.py"],
+ what:"Reached through rag/llm.py. One Settings object is created from your environment variables and the .env file in the folder you started from (API key, project, bucket, model names). Missing values become empty text with no error yet. If a service account file path is set and exists, it is registered as Google's credentials.",
+ plain:"Reading the notes on the fridge. Every other module reads from this single note."},
+{t:"Logger starts",files:["logger/custom_logger.py"],
+ what:"One shared logger is created. It makes a logs/ folder in the current directory, picks a timestamped file name, writes every log line as JSON to the console and that file, and registers a shutdown task that uploads the file to Cloud Storage.",
+ plain:"Opening the kitchen diary. From here on, every action is written down.",
+ out:"logs/\n  10_08_2026_16_41_00.log   <- one new file per start"},
+{t:"Remaining modules load",files:["api/schemas.py","rag/data_ingestion.py","rag/retrieval.py","rag/vector_store.py","rag/embeddings.py"],
+ what:"endpoints.py finishes its imports: the request and response shapes, and the document Q&A code. This loads the code only. Connecting to Vector Search waits for a real request.",
+ plain:"Stocking the shelves without calling the supplier."},
+{t:"App object is built",files:["api/main.py"],
+ what:"Now main.py runs its own body. It creates the FastAPI app (title and version come from settings), adds CORS so the browser page may call it, and registers four route groups: health, status, agent and rag. The list of web addresses now exists.",
+ plain:"Opening the restaurant doors and putting up the menu."},
+{t:"Frontend check",files:["api/main.py"],
+ what:"It looks for frontend/dist. Found (Docker, after a build): it serves the React page and sends unknown paths to index.html. Not found (a plain local run): it logs a warning and the API runs alone. Start the page separately with npm run dev.",
+ plain:"Checking whether the dining room was built. If not, the kitchen still opens.",
+ out:'{"event": "Frontend dist not found ...", "level": "warning"}'},
+{t:"Server is ready",files:[],
+ what:"Uvicorn listens on the port. The app's startup hook does nothing, so it is ready at once. You can open http://localhost:8080/docs. No Gemini model, no agents and no Vector Search connection exist yet.",
+ plain:"Doors open, kitchen cold. Dishes get prepared when the first order arrives.",
+ out:"INFO:     Application startup complete."}
+];
+var STATE=[
+ "Python can find backend/ and api.main",
+ "Import chain has run (code defined, nothing called)",
+ "Settings object created from .env",
+ "Logger and logs/ file ready",
+ "RAG and schema modules loaded",
+ "FastAPI app with CORS and 4 route groups",
+ "Frontend served or warning logged",
+ "Listening on the port"
+];
+var TREE=[
+ ["dir","backend/api/"],["api/main.py",[1,2,6,7]],["api/endpoints.py",[2,5]],["api/schemas.py",[5]],
+ ["dir","backend/agent/"],["agent/agents.py",[2]],["agent/prompts.py",[2]],["agent/tools.py",[2]],
+ ["dir","backend/rag/"],["rag/llm.py",[2]],["rag/embeddings.py",[5]],["rag/vector_store.py",[5]],["rag/retrieval.py",[5]],["rag/data_ingestion.py",[5]],
+ ["dir","backend/config/ and logger/"],["config/settings.py",[3]],["logger/custom_logger.py",[4]]
+];
+var idx=0,timer=null,made={llm:false,agents:false,vs:false};
+var $=function(id){return document.getElementById(id)};
+
+function renderSteps(){
+  $("steps").innerHTML=STEPS.map(function(s,i){
+    var c=i===idx?"active":(i<idx?"done":"");
+    return '<li><button type="button" class="'+c+'" data-i="'+i+'"'+(i===idx?' aria-current="step"':'')+'><span class="n">'+(i+1)+'</span><span class="t">'+s.t+'</span></button></li>';
+  }).join("");
+  $("prog").style.width=((idx+1)/STEPS.length*100)+"%";
+}
+function renderDetail(){
+  var s=STEPS[idx];
+  var files=s.files.length?s.files.map(function(f){return '<span class="chip on">'+f+'</span>'}).join(""):'<span class="chip">no project file yet</span>';
+  var tree=TREE.map(function(r){
+    if(r[0]==="dir")return '<div class="dir">'+r[1]+'</div>';
+    var steps=r[1].map(function(x){return x-1});
+    var now=steps.indexOf(idx)>-1, seen=steps.some(function(x){return x<=idx});
+    return '<div class="f'+(now?' now':(seen?' seen':''))+'">'+r[0]+'</div>';
+  }).join("");
+  $("detail").innerHTML=
+   '<div><div class="kicker">Step '+(idx+1)+' of '+STEPS.length+'</div><h2 style="margin-top:4px">'+s.t+'</h2></div>'+
+   '<div class="files">'+files+'</div>'+
+   '<p>'+s.what+'</p>'+
+   '<div class="plain"><span class="lab">In plain words</span><span>'+s.plain+'</span></div>'+
+   (s.out?'<div class="out" role="img" aria-label="Typical output">'+s.out+'</div>':'')+
+   '<div><h3 style="margin-bottom:8px">Files touched so far</h3><div class="tree">'+tree+'</div></div>';
+}
+function renderState(){
+  $("state").innerHTML=STATE.map(function(t,i){
+    var on=i<=idx;
+    return '<li class="'+(on?'on':'')+'"><span class="box">'+(on?'&#10003;':'')+'</span><span>'+t+'</span></li>';
+  }).join("");
+}
+function renderLazy(){
+  var ready=idx===STEPS.length-1;
+  document.querySelectorAll("[data-req]").forEach(function(b){b.disabled=!ready});
+  $("lazyhint").textContent=ready?"The server is up. Send a request and watch which pieces get created.":"Reach step 8 first, then send a request.";
+  var cards=[
+   ["Gemini chat model","get_llm() in rag/llm.py",made.llm],
+   ["Three audit agents","get_supervisor() in api/endpoints.py",made.agents],
+   ["Vector Search connection","get_vector_store() in rag/vector_store.py",made.vs]];
+  $("lazyrow").innerHTML=cards.map(function(c){
+    return '<div class="card"><h3>'+c[0]+'</h3><span class="pill'+(c[2]?' made':'')+'">'+(c[2]?'Created':'Not created yet')+'</span><span class="note mono">'+c[1]+'</span></div>';
+  }).join("");
+}
+function renderAll(){renderSteps();renderDetail();renderState();renderLazy();$("prev").disabled=idx===0;$("next").disabled=idx===STEPS.length-1}
+function go(i){idx=Math.max(0,Math.min(STEPS.length-1,i));if(idx===STEPS.length-1)stop();renderAll()}
+function stop(){if(timer){clearInterval(timer);timer=null}$("play").textContent="Play";$("play").setAttribute("aria-pressed","false")}
+$("prev").onclick=function(){stop();go(idx-1)};
+$("next").onclick=function(){stop();go(idx+1)};
+$("play").onclick=function(){
+  if(timer){stop();return}
+  if(idx===STEPS.length-1)idx=0;
+  $("play").textContent="Pause";$("play").setAttribute("aria-pressed","true");renderAll();
+  timer=setInterval(function(){go(idx+1)},3200);
+};
+$("steps").onclick=function(e){var b=e.target.closest("button");if(b){stop();go(+b.getAttribute("data-i"))}};
+document.addEventListener("keydown",function(e){
+  if(e.target.closest&&e.target.closest("input,textarea"))return;
+  if(e.key==="ArrowRight"){stop();go(idx+1)}
+  if(e.key==="ArrowLeft"){stop();go(idx-1)}
+});
+var MSG={
+ health:"Answered at once. The health route returns {\"status\": \"ok\"} and needs nothing from Google, so it works even with no key or cloud setup.",
+ audit:function(first){return first?"First audit request: get_supervisor() builds the supervisor once, which gets the Gemini model and creates the risk, tax and control agents. Then the agents run and call Gemini.":"Audit again: the model and agents already exist, so they are reused and only the Gemini calls happen."},
+ ask:function(first){return first?"First question: the app connects to Vertex AI Vector Search and gets the Gemini model, then finds the closest pieces and asks Gemini to answer from them.":"Question again: the connection and model already exist and are reused."},
+ stop:"Shutdown: the app's lifespan hook runs flush_to_gcs(). It uploads logs/<timestamp>.log to your bucket, or prints a skip message if no bucket is set. The exit hook registered in step 4 is a second safety net, and it skips if the upload already happened."
+};
+document.querySelectorAll("[data-req]").forEach(function(b){
+  b.onclick=function(){
+    var r=b.getAttribute("data-req"),first;
+    if(r==="health")$("msg").textContent=MSG.health;
+    if(r==="audit"){first=!made.agents;made.llm=true;made.agents=true;$("msg").textContent=MSG.audit(first)}
+    if(r==="ask"){first=!made.vs;made.llm=true;made.vs=true;$("msg").textContent=MSG.ask(first)}
+    if(r==="stop")$("msg").textContent=MSG.stop;
+    renderLazy();
+  };
+});
+$("reset").onclick=function(){stop();made={llm:false,agents:false,vs:false};$("msg").textContent="";idx=0;renderAll()};
+renderAll();
+</script>
+
+</body></html>
